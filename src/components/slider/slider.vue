@@ -230,7 +230,11 @@
                     if (value[1] > this.max) {
                         value[1] = this.max;
                     }
-                    if (this.value[0] === value[0] && this.value[1] === value[1]) return;
+                    if (this.value[0] === value[0] && this.value[1] === value[1]) {
+                        this.setFirstPosition(this.currentValue[0]);
+                        this.setSecondPosition(this.currentValue[1]);
+                        return;
+                    }
 
                     this.currentValue = value;
                     this.setFirstPosition(this.currentValue[0]);
@@ -301,18 +305,21 @@
                 }
             },
             changeSinglePosition (newPos) {
-                if (newPos >= 0 && (newPos <= 100)) {
-                    const lengthPerStep = 100 / ((this.max - this.min) / this.step);
-                    const steps = Math.round(newPos / lengthPerStep);
+                if (newPos < 0) {
+                    newPos = 0;
+                } else if (newPos > 100) {
+                    newPos = 100;
+                }
+                const lengthPerStep = 100 / ((this.max - this.min) / this.step);
+                const steps = Math.round(newPos / lengthPerStep);
 
-                    this.currentValue = Math.round(steps * lengthPerStep * (this.max - this.min) * 0.01 + this.min);
-                    this.setSinglePosition(this.currentValue);
-                    if (!this.dragging) {
-                        if (this.currentValue !== this.oldSingleValue) {
-                            this.$emit('on-change', this.currentValue);
-                            this.dispatch('FormItem', 'on-form-change', this.currentValue);
-                            this.oldSingleValue = this.currentValue;
-                        }
+                this.currentValue = Math.round(steps * lengthPerStep * (this.max - this.min) * 0.01 + this.min);
+                this.setSinglePosition(this.currentValue);
+                if (!this.dragging) {
+                    if (this.currentValue !== this.oldSingleValue) {
+                        this.$emit('on-change', this.currentValue);
+                        this.dispatch('FormItem', 'on-form-change', this.currentValue);
+                        this.oldSingleValue = this.currentValue;
                     }
                 }
             },
@@ -357,18 +364,21 @@
                 }
             },
             changeFirstPosition (newPos) {
-                if (newPos >= 0 && (newPos <= this.secondPosition)) {
-                    const lengthPerStep = 100 / ((this.max - this.min) / this.step);
-                    const steps = Math.round(newPos / lengthPerStep);
+                if (newPos < 0) {
+                    newPos = 0;
+                } else if (newPos > this.secondPosition) {
+                    newPos = this.secondPosition;
+                }
+                const lengthPerStep = 100 / ((this.max - this.min) / this.step);
+                const steps = Math.round(newPos / lengthPerStep);
 
-                    this.currentValue = [Math.round(steps * lengthPerStep * (this.max - this.min) * 0.01 + this.min), this.currentValue[1]];
-                    this.setFirstPosition(this.currentValue[0]);
-                    if (!this.firstDragging) {
-                        if (this.currentValue[0] !== this.oldFirstValue) {
-                            this.$emit('on-change', this.currentValue);
-                            this.dispatch('FormItem', 'on-form-change', this.currentValue);
-                            this.oldFirstValue = this.currentValue[0];
-                        }
+                this.currentValue = [Math.round(steps * lengthPerStep * (this.max - this.min) * 0.01 + this.min), this.currentValue[1]];
+                this.setFirstPosition(this.currentValue[0]);
+                if (!this.firstDragging) {
+                    if (this.currentValue[0] !== this.oldFirstValue) {
+                        this.$emit('on-change', this.currentValue);
+                        this.dispatch('FormItem', 'on-form-change', this.currentValue);
+                        this.oldFirstValue = this.currentValue[0];
                     }
                 }
             },
@@ -407,18 +417,21 @@
                 }
             },
             changeSecondPosition (newPos) {
-                if (newPos >= this.firstPosition && (newPos <= 100)) {
-                    const lengthPerStep = 100 / ((this.max - this.min) / this.step);
-                    const steps = Math.round(newPos / lengthPerStep);
+                if (newPos > 100) {
+                    newPos = 100;
+                } else if (newPos < this.firstPosition) {
+                    newPos = this.firstPosition;
+                }
+                const lengthPerStep = 100 / ((this.max - this.min) / this.step);
+                const steps = Math.round(newPos / lengthPerStep);
 
-                    this.currentValue = [this.currentValue[0], Math.round(steps * lengthPerStep * (this.max - this.min) * 0.01 + this.min)];
-                    this.setSecondPosition(this.currentValue[1]);
-                    if (!this.secondDragging) {
-                        if (this.currentValue[1] !== this.oldSecondValue) {
-                            this.$emit('on-change', this.currentValue);
-                            this.dispatch('FormItem', 'on-form-change', this.currentValue);
-                            this.oldSecondValue = this.currentValue[1];
-                        }
+                this.currentValue = [this.currentValue[0], Math.round(steps * lengthPerStep * (this.max - this.min) * 0.01 + this.min)];
+                this.setSecondPosition(this.currentValue[1]);
+                if (!this.secondDragging) {
+                    if (this.currentValue[1] !== this.oldSecondValue) {
+                        this.$emit('on-change', this.currentValue);
+                        this.dispatch('FormItem', 'on-form-change', this.currentValue);
+                        this.oldSecondValue = this.currentValue[1];
                     }
                 }
             },

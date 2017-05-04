@@ -71,6 +71,8 @@
             if (this.parent) this.group = true;
             if (!this.group) {
                 this.updateValue();
+            } else {
+                this.parent.updateValue();
             }
         },
         methods: {
@@ -83,7 +85,7 @@
                 this.currentValue = checked;
                 this.$emit('input', checked);
 
-                if (this.group && this.label) {
+                if (this.group && this.label !== undefined) {
                     this.parent.change({
                         value: this.label,
                         checked: this.value

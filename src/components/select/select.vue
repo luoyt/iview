@@ -8,14 +8,14 @@
                 <span class="ivu-tag-text">{{ item.label }}</span>
                 <Icon type="ios-close-empty" @click.native.stop="removeTag(index)"></Icon>
             </div>
-            <span :class="[prefixCls + '-placeholder']" v-show="showPlaceholder && !filterable">{{ placeholder }}</span>
+            <span :class="[prefixCls + '-placeholder']" v-show="showPlaceholder && !filterable">{{ localePlaceholder }}</span>
             <span :class="[prefixCls + '-selected-value']" v-show="!showPlaceholder && !multiple && !filterable">{{ selectedSingle }}</span>
             <input
                 type="text"
                 v-if="filterable"
                 v-model="query"
                 :class="[prefixCls + '-input']"
-                :placeholder="showPlaceholder ? placeholder : ''"
+                :placeholder="showPlaceholder ? localePlaceholder : ''"
                 :style="inputStyle"
                 @blur="handleBlur"
                 @keydown="resetInputState"
@@ -24,9 +24,9 @@
             <Icon type="ios-close" :class="[prefixCls + '-arrow']" v-show="showCloseIcon" @click.native.stop="clearSingleSelect"></Icon>
             <Icon type="arrow-down-b" :class="[prefixCls + '-arrow']"></Icon>
         </div>
-        <transition name="slide-up">
-            <Drop v-show="visible" ref="dropdown">
-                <ul v-show="notFound" :class="[prefixCls + '-not-found']"><li>{{ notFoundText }}</li></ul>
+        <transition :name="transitionName">
+            <Drop v-show="visible" :placement="placement" ref="dropdown">
+                <ul v-show="notFound" :class="[prefixCls + '-not-found']"><li>{{ localeNotFoundText }}</li></ul>
                 <ul v-show="!notFound" :class="[prefixCls + '-dropdown-list']" ref="options"><slot></slot></ul>
             </Drop>
         </transition>
@@ -36,15 +36,15 @@
     import Icon from '../icon';
     import Drop from './dropdown.vue';
     import clickoutside from '../../directives/clickoutside';
-    import { oneOf, MutationObserver, findComponentDownward } from '../../utils/assist';
-    import { t } from '../../locale';
+    import { oneOf, findComponentDownward } from '../../utils/assist';
     import Emitter from '../../mixins/emitter';
+    import Locale from '../../mixins/locale';
 
     const prefixCls = 'ivu-select';
 
     export default {
         name: 'iSelect',
-        mixins: [ Emitter ],
+        mixins: [ Emitter, Locale ],
         components: { Icon, Drop },
         directives: { clickoutside },
         props: {
@@ -65,10 +65,7 @@
                 default: false
             },
             placeholder: {
-                type: String,
-                default () {
-                    return t('i.select.placeholder');
-                }
+                type: String
             },
             filterable: {
                 type: Boolean,
@@ -87,10 +84,13 @@
                 default: false
             },
             notFoundText: {
-                type: String,
-                default () {
-                    return t('i.select.noMatch');
-                }
+                type: String
+            },
+            placement: {
+                validator (value) {
+                    return oneOf(value, ['top', 'bottom']);
+                },
+                default: 'bottom'
             }
         },
         data () {
@@ -153,6 +153,23 @@
                 }
 
                 return style;
+            },
+            localePlaceholder () {
+                if (this.placeholder === undefined) {
+                    return this.t('i.select.placeholder');
+                } else {
+                    return this.placeholder;
+                }
+            },
+            localeNotFoundText () {
+                if (this.notFoundText === undefined) {
+                    return this.t('i.select.noMatch');
+                } else {
+                    return this.notFoundText;
+                }
+            },
+            transitionName () {
+                return this.placement === 'bottom' ? 'slide-up' : 'slide-down';
             }
         },
         methods: {
@@ -485,7 +502,7 @@
                 this.query = query;
             },
             modelToQuery() {
-                if (!this.multiple && this.filterable && this.model) {
+                if (!this.multiple && this.filterable && this.model !== undefined) {
                     this.findChild((child) => {
                         if (this.model === child.value) {
                             if (child.label) {
@@ -498,30 +515,41 @@
                         }
                     });
                 }
+            },
+            broadcastQuery (val) {
+                if (findComponentDownward(this, 'OptionGroup')) {
+                    this.broadcast('OptionGroup', 'on-query-change', val);
+                    this.broadcast('iOption', 'on-query-change', val);
+                } else {
+                    this.broadcast('iOption', 'on-query-change', val);
+                }
             }
         },
         mounted () {
             this.modelToQuery();
+            this.$nextTick(() => {
+                this.broadcastQuery('');
+            });
 
             this.updateOptions(true);
             document.addEventListener('keydown', this.handleKeydown);
 
-            // watch slot changed
-            // todo 在 child 的 mounted 和 beforeDestroy 里处理
-            if (MutationObserver) {
-                this.observer = new MutationObserver(() => {
-                    this.modelToQuery();
-                    this.slotChange();
-                    this.updateOptions(true, true);
+            this.$on('append', () => {
+                this.modelToQuery();
+                this.$nextTick(() => {
+                    this.broadcastQuery('');
                 });
-
-                this.observer.observe(this.$refs.options, {
-//                attributes: true,
-                    childList: true,
-                    characterData: true,
-                    subtree: true
+                this.slotChange();
+                this.updateOptions(true, true);
+            });
+            this.$on('remove', () => {
+                this.modelToQuery();
+                this.$nextTick(() => {
+                    this.broadcastQuery('');
                 });
-            }
+                this.slotChange();
+                this.updateOptions(true, true);
+            });
 
             this.$on('on-select-selected', (value) => {
                 if (this.model === value) {
@@ -556,13 +584,11 @@
         },
         beforeDestroy () {
             document.removeEventListener('keydown', this.handleKeydown);
-            if (this.observer) {
-                this.observer.disconnect();
-            }
         },
         watch: {
             value (val) {
                 this.model = val;
+                if (val === '') this.query = '';
             },
             model () {
                 this.$emit('input', this.model);
@@ -579,24 +605,30 @@
             },
             visible (val) {
                 if (val) {
-                    if (this.multiple && this.filterable) {
-                        this.$refs.input.focus();
+                    if (this.filterable) {
+                        if (this.multiple) {
+                            this.$refs.input.focus();
+                        } else {
+                            this.$refs.input.select();
+                        }
                     }
                     this.broadcast('Drop', 'on-update-popper');
                 } else {
                     if (this.filterable) {
                         this.$refs.input.blur();
+                        // #566 reset options visible
+                        setTimeout(() => {
+                            this.broadcastQuery('');
+                        }, 300);
                     }
                     this.broadcast('Drop', 'on-destroy-popper');
                 }
             },
             query (val) {
-                if (findComponentDownward(this, 'OptionGroup')) {
-                    this.broadcast('OptionGroup', 'on-query-change', val);
-                    this.broadcast('iOption', 'on-query-change', val);
-                } else {
-                    this.broadcast('iOption', 'on-query-change', val);
-                }
+                this.$emit('on-query-change', val);
+
+                this.broadcastQuery(val);
+                
                 let is_hidden = true;
 
                 this.$nextTick(() => {

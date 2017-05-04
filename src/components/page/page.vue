@@ -1,5 +1,5 @@
 <template>
-    <ul :class="simpleWrapClasses" :style="style" v-if="simple">
+    <ul :class="simpleWrapClasses" :style="styles" v-if="simple">
         <li
             :title="t('i.page.prev')"
             :class="prevClasses"
@@ -23,7 +23,7 @@
             <a><i class="ivu-icon ivu-icon-ios-arrow-right"></i></a>
         </li>
     </ul>
-    <ul :class="wrapClasses" :style="style" v-else>
+    <ul :class="wrapClasses" :style="styles" v-else>
         <span :class="[prefixCls + '-total']" v-if="showTotal">
             <slot>{{ t('i.page.total') }} {{ total }} <template v-if="total <= 1">{{ t('i.page.item') }}</template><template v-else>{{ t('i.page.items') }}</template></slot>
         </span>
@@ -52,6 +52,7 @@
             :show-sizer="showSizer"
             :page-size="currentPageSize"
             :page-size-opts="pageSizeOpts"
+            :placement="placement"
             :show-elevator="showElevator"
             :_current.once="currentPage"
             :current="currentPage"
@@ -92,6 +93,12 @@
                     return [10, 20, 30, 40];
                 }
             },
+            placement: {
+                validator (value) {
+                    return oneOf(value, ['top', 'bottom']);
+                },
+                default: 'bottom'
+            },
             size: {
                 validator (value) {
                     return oneOf(value, ['small']);
@@ -116,7 +123,7 @@
             className: {
                 type: String
             },
-            style: {
+            styles: {
                 type: Object
             }
         },
@@ -236,8 +243,8 @@
             },
             onSize (pageSize) {
                 this.currentPageSize = pageSize;
-                this.changePage(1);
                 this.$emit('on-page-size-change', pageSize);
+                this.changePage(1);
             },
             onPage (page) {
                 this.changePage(page);
